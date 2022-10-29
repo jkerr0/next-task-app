@@ -1,6 +1,5 @@
 import { ObjectId } from "mongodb"
 import { ChangeEvent, useState } from "react"
-import clientPromise from "../lib/mongodb"
 import getTodoDb from "../services/mongo"
 
 export interface Task {
@@ -37,19 +36,27 @@ export async function getServerSideProps() {
     }
 }
 
-async function createTask(name: string): Promise<Task> {
-    return Promise.reject()
-}
-
-
 export default function TasksPage({ readyTasks, doneTasks }: TaskProps) {
+
+    const API_URL = 'http://localhost:3000/api/tasks'
 
     const [readyTasksState, setReadyTasks] = useState(readyTasks)
     const [doneTasksState, setDoneTasks] = useState(doneTasks)
 
     const [newTaskName, setNewTaskName] = useState('')
 
-    function handleTaskCheckbox(event: ChangeEvent<HTMLInputElement>, task: Task) {
+    async function updateTask(task: Task) {
+        await fetch(API_URL, {
+            method: 'PUT',
+            body: JSON.stringify(task),
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        })
+    }
+
+    async function handleTaskCheckbox(event: ChangeEvent<HTMLInputElement>, task: Task) {
         const removedTasksSetter = task.done ? setDoneTasks : setReadyTasks
         const addedTasksSetter = task.done ? setReadyTasks : setDoneTasks
         const currentTasksList = task.done ? doneTasksState : readyTasksState
@@ -57,19 +64,30 @@ export default function TasksPage({ readyTasks, doneTasks }: TaskProps) {
         removedTasksSetter(currentTasksList.filter(otherTask => otherTask !== task))
         task.done = !task.done
         addedTasksSetter([...otherTasksList, task])
+        await updateTask(task)
     }
 
-    async function handleNewTask(taskName: string) {
-        const task = {
+    async function createTask(taskName: string): Promise<Task> {
+        const newTask = {
             name: taskName,
             done: false
         }
-        const response = await fetch('http://localhost:3000/api/tasks', {
+        const response = await fetch(API_URL, {
             method: 'POST',
-            body: JSON.stringify(task)
-        })
-        console.log(response)
-        // setReadyTasks([...readyTasksState, task])
+            body: JSON.stringify(newTask),
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        }).then(response => response.json())
+        return {
+            _id: response['insertedId'],
+            ...newTask
+        }
+    }
+
+    async function handleNewTask(taskName: string) {
+        setReadyTasks([...readyTasksState, await createTask(taskName)])
         setNewTaskName('')
     }
 
@@ -79,12 +97,34 @@ export default function TasksPage({ readyTasks, doneTasks }: TaskProps) {
                 <label>{task.done ? <del>{task.name}</del> : task.name}</label>
                 <input
                     type='checkbox'
-                    key={task._id.toString()}
                     onChange={e => handleTaskCheckbox(e, task)}
                     checked={task.done}>
                 </input>
+                <input
+                    type='button'
+                    value='Delete'
+                    onClick={e => handleDelete(task)}>
+                </input>
             </div>
         )
+    }
+
+    async function handleDelete(task: Task) {
+        const currentTasksList = task.done ? doneTasksState : readyTasksState
+        const currentTasksListSetter = task.done ? setDoneTasks : setReadyTasks
+        currentTasksListSetter(currentTasksList.filter(otherTask => otherTask !== task))
+        await deleteTask(task._id)
+    }
+
+    async function deleteTask(taskId: ObjectId) {
+        await fetch(API_URL, {
+            method: 'DELETE',
+            body: JSON.stringify({ _id: taskId }),
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        })
     }
     return (
         <>
@@ -92,11 +132,15 @@ export default function TasksPage({ readyTasks, doneTasks }: TaskProps) {
             <div>
                 <h2>TODO</h2>
                 {readyTasksState.map(renderTask)}
-                <input 
-                type='text'
-                 value={newTaskName}
-                  onChange={e => setNewTaskName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleNewTask(newTaskName)}></input>
+                <input
+                    type='text'
+                    value={newTaskName}
+                    onChange={e => setNewTaskName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleNewTask(newTaskName)}></input>
+                <input
+                    type='button'
+                    value='Add'
+                    onClick={e => handleNewTask(newTaskName)}></input>
             </div>
             <div>
                 <h2>DONE</h2>
