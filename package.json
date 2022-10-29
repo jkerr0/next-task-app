@@ -6,9 +6,11 @@
     "start": "next start"
   },
   "dependencies": {
+    "bootstrap": "^5.2.2",
     "mongodb": "^4.8.1",
     "next": "latest",
     "react": "^18.2.0",
+    "react-bootstrap": "^2.5.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
