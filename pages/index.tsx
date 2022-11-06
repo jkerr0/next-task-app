@@ -146,7 +146,7 @@ export default function TasksPage({ readyTasks, doneTasks }: TaskProps) {
                     crossOrigin="anonymous"
                 />
             </Head>
-            <Container>
+            <Container className='my-5'>
                 <Card>
                     <Card.Header>Task list</Card.Header>
                     <Card.Body>
